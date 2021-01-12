@@ -15,8 +15,8 @@ namespace Inedo.Extensions.Jira.RestApi
 {
     internal sealed class RestApiClient
     {
-        private string host;
-        private string apiBaseUrl;
+        private readonly string host;
+        private readonly string apiBaseUrl;
 
         public RestApiClient(string host)
         {
@@ -183,31 +183,27 @@ namespace Inedo.Extensions.Jira.RestApi
 
         private async Task<object> GetAsync(string relativeUrl, QueryString query)
         {
-            using (var client = this.CreateClient())
-            {
-                string url = this.apiBaseUrl + relativeUrl + query?.ToString();
+            using var client = this.CreateClient();
+            string url = this.apiBaseUrl + relativeUrl + query?.ToString();
 
-                var response = await client.GetAsync(url).ConfigureAwait(false);
-                await HandleError(response).ConfigureAwait(false);
-                string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                var serializer = new JavaScriptSerializer();
-                return serializer.DeserializeObject(json);
-            }
+            var response = await client.GetAsync(url).ConfigureAwait(false);
+            await HandleError(response).ConfigureAwait(false);
+            string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var serializer = new JavaScriptSerializer();
+            return serializer.DeserializeObject(json);
         }
 
         private async Task<object> PostAsync(string relativeUrl, QueryString query, object data)
         {
-            using (var client = this.CreateClient())
-            {
-                string url = this.apiBaseUrl + relativeUrl + query?.ToString();
+            using var client = this.CreateClient();
+            string url = this.apiBaseUrl + relativeUrl + query?.ToString();
 
-                var serializer = new JavaScriptSerializer();
+            var serializer = new JavaScriptSerializer();
 
-                var response = await client.PostAsync(url, new StringContent(serializer.Serialize(data))).ConfigureAwait(false);
-                await HandleError(response).ConfigureAwait(false);
-                string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                return serializer.DeserializeObject(json);
-            }
+            var response = await client.PostAsync(url, new StringContent(serializer.Serialize(data))).ConfigureAwait(false);
+            await HandleError(response).ConfigureAwait(false);
+            string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            return serializer.DeserializeObject(json);
         }
 
         private HttpClient CreateClient()
@@ -243,12 +239,10 @@ namespace Inedo.Extensions.Jira.RestApi
             request.Method = method;
             if (data != null)
             {
-                using (var requestStream = await request.GetRequestStreamAsync())
-                using (var writer = new StreamWriter(requestStream, InedoLib.UTF8Encoding))
-                {
-                    var js = new JavaScriptSerializer();
-                    writer.Write(js.Serialize(data));
-                }
+                using var requestStream = await request.GetRequestStreamAsync();
+                using var writer = new StreamWriter(requestStream, InedoLib.UTF8Encoding);
+                var js = new JavaScriptSerializer();
+                writer.Write(js.Serialize(data));
             }
 
             if (!string.IsNullOrEmpty(this.UserName))
@@ -258,34 +252,30 @@ namespace Inedo.Extensions.Jira.RestApi
 
             try
             {
-                using (var response = await request.GetResponseAsync())
-                using (var responseStream = response.GetResponseStream())
-                using (var reader = new StreamReader(responseStream))
-                {
-                    var js = new JavaScriptSerializer();
-                    return js.DeserializeObject(reader.ReadToEnd());
-                }
+                using var response = await request.GetResponseAsync();
+                using var responseStream = response.GetResponseStream();
+                using var reader = new StreamReader(responseStream);
+                var js = new JavaScriptSerializer();
+                return js.DeserializeObject(reader.ReadToEnd());
             }
             catch (WebException ex) when (ex.Response != null)
             {
-                using (var responseStream = ex.Response.GetResponseStream())
+                using var responseStream = ex.Response.GetResponseStream();
+                string message;
+                try
                 {
-                    string message;
-                    try
-                    {
-                        var js = new JavaScriptSerializer();
-                        var result = (Dictionary<string, object>)js.DeserializeObject(new StreamReader(responseStream).ReadToEnd());
-                        var messages = (IEnumerable<object>)result["errorMessages"];
-                        var errors = (Dictionary<string, object>)result["errors"];
-                        message = "JIRA API response error: " + string.Join("; ", messages.Concat(errors.Select(e => $"{e.Value} ({e.Key})")));
-                    }
-                    catch
-                    {
-                        throw ex;
-                    }
-
-                    throw new Exception(message, ex);
+                    var js = new JavaScriptSerializer();
+                    var result = (Dictionary<string, object>)js.DeserializeObject(new StreamReader(responseStream).ReadToEnd());
+                    var messages = (IEnumerable<object>)result["errorMessages"];
+                    var errors = (Dictionary<string, object>)result["errors"];
+                    message = "JIRA API response error: " + string.Join("; ", messages.Concat(errors.Select(e => $"{e.Value} ({e.Key})")));
                 }
+                catch
+                {
+                    throw ex;
+                }
+
+                throw new Exception(message, ex);
             }
         }
     }

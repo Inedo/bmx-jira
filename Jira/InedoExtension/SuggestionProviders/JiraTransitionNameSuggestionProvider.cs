@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Inedo.Extensibility;
-using Inedo.Extensibility.Credentials;
 using Inedo.Extensions.Jira.Clients;
 using Inedo.Extensions.Jira.Credentials;
 using Inedo.Web;
