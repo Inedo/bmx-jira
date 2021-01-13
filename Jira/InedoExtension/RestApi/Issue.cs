@@ -1,32 +1,31 @@
 ﻿using System;
-using System.Collections.Generic;
 using Inedo.Extensibility.IssueSources;
+using Newtonsoft.Json.Linq;
 
 namespace Inedo.Extensions.Jira.RestApi
 {
-    [Serializable]
     internal sealed class Issue : IIssueTrackerIssue
     {
-        public Issue(Dictionary<string, object> issue, string hostUrl)
+        public Issue(JObject issue, string hostUrl)
         {
             if (issue == null)
                 throw new ArgumentNullException(nameof(issue));
             if (hostUrl == null)
                 throw new ArgumentNullException(nameof(hostUrl));
 
-            var fields = (Dictionary<string, object>)issue["fields"];
-            var status = (Dictionary<string, object>)fields["status"];
-            var reporter = (Dictionary<string, object>)fields["reporter"];
-            var type = (Dictionary<string, object>)fields["issuetype"];
+            var fields = (JObject)issue["fields"];
+            var status = (JObject)fields["status"];
+            var reporter = (JObject)fields["reporter"];
+            var type = (JObject)fields["issuetype"];
 
             this.Id = issue["key"].ToString();
-            this.Description = fields.GetValueOrDefault("description")?.ToString();
-            this.Status = status["name"].ToString();
-            this.IsClosed = fields.GetValueOrDefault("resolution") != null;
-            this.SubmittedDate = DateTime.Parse(fields["created"].ToString());
-            this.Submitter = reporter["name"].ToString();
-            this.Title = fields.GetValueOrDefault("summary")?.ToString();
-            this.Type = type["name"].ToString();
+            this.Description = (string)fields.Property("description");
+            this.Status = (string)status.Property("name");
+            this.IsClosed = fields.Property("resolution") != null;
+            this.SubmittedDate = (DateTime)fields.Property("created");
+            this.Submitter = (string)reporter.Property("name");
+            this.Title = (string)fields.Property("summary");
+            this.Type = (string)type.Property("name");
             this.Url = hostUrl + "/browse/" + this.Id;
         }
 

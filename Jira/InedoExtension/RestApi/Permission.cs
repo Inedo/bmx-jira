@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Newtonsoft.Json.Linq;
 
 namespace Inedo.Extensions.Jira.RestApi
 {
     internal sealed class Permission
     {
-        public Permission(Dictionary<string, object> permission)
+        public Permission(JObject permission)
         {
-            this.Key = permission["key"].ToString();
-            this.HasPermission = permission["havePermission"].ToString().Equals("true", StringComparison.OrdinalIgnoreCase);
+            this.Key = (string)permission.Property("key");
+            this.HasPermission = (bool?)permission.Property("havePermission") ?? false;
         }
 
         public string Key { get; }

@@ -1,13 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using Newtonsoft.Json.Linq;
 
 namespace Inedo.Extensions.Jira
 {
     internal sealed class Transition
     {
-        public Transition(Dictionary<string, object> transition)
+        public Transition(JObject transition)
         {
-            this.Id = transition["id"].ToString();
-            this.Name = transition["name"].ToString();
+            this.Id = (string)transition.Property("id");
+            this.Name = (string)transition.Property("name");
         }
 
         public string Id { get; }
