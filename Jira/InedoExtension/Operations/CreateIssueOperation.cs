@@ -49,11 +49,12 @@ Log-Information ""Issue '$JiraIssueId' was created in JIRA."";
         [ScriptAlias("Description")]
         [DisplayName("Description")]
         public string Description { get; set; }
+        [Required]
         [ScriptAlias("FixFor")]
         [DisplayName("Fix for version")]
-        [PlaceholderText("$ReleaseNumber")]
+        [DefaultValue("$ReleaseNumber")]
         [SuggestableValue(typeof(JiraFixForVersionSuggestionProvider))]
-        public string FixForVersion { get; set; }
+        public string FixForVersion { get; set; } = "$ReleaseNumber";
 
         [Output]
         [ScriptAlias("JiraIssueId")]
@@ -76,7 +77,7 @@ Log-Information ""Issue '$JiraIssueId' was created in JIRA."";
             if (type == null)
                 return;
 
-            var fixForVersion = this.FixForVersion ?? (context as IStandardContext)?.SemanticVersion;
+            var fixForVersion = this.FixForVersion;
 
             var issue = await client.CreateIssueAsync(
                 new JiraContext(project, fixForVersion, null),

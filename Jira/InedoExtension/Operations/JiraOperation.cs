@@ -21,20 +21,18 @@ namespace Inedo.Extensions.Jira.Operations
 
         [Category("Connection")]
         [ScriptAlias("Server")]
-        [PlaceholderText("Use server URL from credential")]
-        [MappedCredential(nameof(JiraCredentials.ServerUrl))]
+        [PlaceholderText("Use server URL from secure resource")]
         public string ServerUrl { get; set; }
 
+        [Browsable(false)]
         [Category("Connection")]
         [ScriptAlias("UserName")]
         [PlaceholderText("Use user name from credential")]
-        [MappedCredential(nameof(JiraCredentials.UserName))]
         public string UserName { get; set; }
-
+        [Browsable(false)]
         [Category("Connection")]
         [ScriptAlias("Password")]
         [PlaceholderText("Use password from credential")]
-        [MappedCredential(nameof(JiraCredentials.Password))]
         public SecureString Password { get; set; }
 
         internal async Task<JiraProject> ResolveProjectAsync(JiraClient client, string name)

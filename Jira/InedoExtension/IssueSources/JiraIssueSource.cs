@@ -16,7 +16,7 @@ namespace Inedo.Extensions.Jira.IssueSources
 {
     [DisplayName("JIRA Issue Source")]
     [Description("Issue source for JIRA.")]
-    public sealed class JiraIssueSource : IssueSource, IHasCredentials<JiraCredentials>
+    public sealed class JiraIssueSource : IssueSource
     {
         [Persistent]
         [DisplayName("Credentials")]
@@ -69,9 +69,7 @@ namespace Inedo.Extensions.Jira.IssueSources
             if (!string.IsNullOrEmpty(this.CustomJql))
                 return new RichDescription("Get Issues from JIRA Using Custom JQL");
             else
-                return new RichDescription(
-                    "Get Issues from ", new Hilite(this.ProjectName), " in JIRA for version ", new Hilite(this.FixForVersion)
-                );
+                return new RichDescription("Get Issues from ", new Hilite(this.ProjectName), " in JIRA for version ", new Hilite(this.FixForVersion));
         }
     }
 }

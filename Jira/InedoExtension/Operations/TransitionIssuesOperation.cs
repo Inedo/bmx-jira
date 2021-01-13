@@ -43,11 +43,12 @@ Transition-Issues(
         [DisplayName("To")]
         [SuggestableValue(typeof(JiraTransitionNameSuggestionProvider))]
         public string ToStatus { get; set; }
+        [Required]
         [ScriptAlias("FixFor")]
         [DisplayName("With fix for version")]
-        [PlaceholderText("$ReleaseNumber")]
+        [DefaultValue("$ReleaseNumber")]
         [SuggestableValue(typeof(JiraFixForVersionSuggestionProvider))]
-        public string FixForVersion { get; set; }
+        public string FixForVersion { get; set; } = "$ReleaseNumber";
         [ScriptAlias("Id")]
         [DisplayName("Specific issue ID")]
         [PlaceholderText("Any")]
@@ -64,7 +65,7 @@ Transition-Issues(
             if (project == null)
                 return;
 
-            var fixForVersion = this.FixForVersion ?? (context as IStandardContext)?.SemanticVersion;
+            var fixForVersion = this.FixForVersion;
 
             var jiraContext = new JiraContext(project, fixForVersion, null);
 
