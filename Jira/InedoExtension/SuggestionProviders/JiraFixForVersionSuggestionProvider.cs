@@ -4,41 +4,27 @@ using System.Linq;
 using System.Threading.Tasks;
 using Inedo.Extensibility;
 using Inedo.Extensions.Jira.Clients;
-using Inedo.Extensions.Jira.Credentials;
-using Inedo.Web;
 
 namespace Inedo.Extensions.Jira.SuggestionProviders
 {
-    public sealed class JiraFixForVersionSuggestionProvider : ISuggestionProvider
+    public sealed class JiraFixForVersionSuggestionProvider : JiraSuggestionProvider
     {
-        public async Task<IEnumerable<string>> GetSuggestionsAsync(IComponentConfiguration config)
+        private protected override string Empty => "$ReleaseNumber";
+
+        private protected async override Task<IEnumerable<string>> GetSuggestionsAsync(IComponentConfiguration config, JiraClient client)
         {
-            var empty = new[] { "$ReleaseNumber" };
-
-            if (config == null)
-                return empty;
-
-            string credentialName = config["CredentialName"];
-            if (string.IsNullOrEmpty(credentialName))
-                return empty;
-
             string projectName = config["ProjectName"];
             if (string.IsNullOrEmpty(projectName))
-                return empty;
+                return this.GetEmpty();
 
-            var credential = JiraCredentials.TryCreate(credentialName, config);
-            if (credential == null)
-                return empty;
-
-            var client = JiraClient.Create(credential.ServerUrl, credential.UserName, AH.Unprotect(credential.Password));
             var proj = (await client.GetProjectsAsync()).FirstOrDefault(p => string.Equals(projectName, p.Name, StringComparison.OrdinalIgnoreCase));
             if (proj == null)
-                return empty;
+                return this.GetEmpty();
 
             var versions = from v in await client.GetProjectVersionsAsync(proj.Key)
                            select v.Name;
 
-            return empty.Concat(versions);
+            return new[] { this.Empty }.Concat(versions);
         }
     }
 }

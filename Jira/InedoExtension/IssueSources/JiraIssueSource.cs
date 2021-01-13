@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using Inedo.Documentation;
-using Inedo.Extensibility;
 using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.IssueSources;
+using Inedo.Extensibility.SecureResources;
 using Inedo.Extensions.Jira.Clients;
 using Inedo.Extensions.Jira.Credentials;
 using Inedo.Extensions.Jira.SuggestionProviders;
@@ -16,7 +16,7 @@ namespace Inedo.Extensions.Jira.IssueSources
 {
     [DisplayName("JIRA Issue Source")]
     [Description("Issue source for JIRA.")]
-    public sealed class JiraIssueSource : IssueSource
+    public sealed class JiraIssueSource : IssueSource<JiraSecureResource>
     {
         [Persistent]
         [DisplayName("Credentials")]
@@ -40,21 +40,23 @@ namespace Inedo.Extensions.Jira.IssueSources
 
         public async override Task<IEnumerable<IIssueTrackerIssue>> EnumerateIssuesAsync(IIssueSourceEnumerationContext context)
         {
-            JiraCredentials credentials;
+            var resource = SecureResource.TryCreate(this.ResourceName, new ResourceResolutionContext(context.ProjectId)) as JiraSecureResource;
+            var credentials = resource?.GetCredentials(new CredentialResolutionContext(context.ProjectId, null)) as Extensions.Credentials.UsernamePasswordCredentials;
+            if (resource == null)
+            {
+                var legacy = SecureCredentials.TryCreate(this.CredentialName, new CredentialResolutionContext(context.ProjectId, null)) as JiraCredentials;
+                resource = (JiraSecureResource)legacy?.ToSecureResource();
+                credentials = (Extensions.Credentials.UsernamePasswordCredentials)legacy?.ToSecureCredentials();
+            }
 
-            if (context is IStandardContext s)
-                credentials = this.TryGetCredentials(s.EnvironmentId, s.ProjectId) as JiraCredentials;
-            else    
-                credentials = this.TryGetCredentials();
-
-            if (credentials == null)
-                throw new InvalidOperationException("Credentials must be supplied to enumerate JIRA issues.");
+            if (resource == null)
+                throw new InvalidOperationException("A resource must be supplied to enumerate JIRA issues.");
             if (string.IsNullOrEmpty(this.ProjectName) && string.IsNullOrEmpty(this.FixForVersion) && string.IsNullOrEmpty(this.CustomJql))
                 throw new InvalidOperationException("Cannot enumerate JIRA issues unless either a project name, fix version, or custom JQL is specified.");
             if (credentials.Password == null)
                 throw new InvalidOperationException("A credential password is required to enumerate JIRA issues.");
 
-            var client = JiraClient.Create(credentials.ServerUrl, credentials.UserName, AH.Unprotect(credentials.Password), context.Log);
+            var client = JiraClient.Create(resource.ServerUrl, credentials.UserName, AH.Unprotect(credentials.Password), context.Log);
 
             var project = await client.FindProjectAsync(this.ProjectName);
 
