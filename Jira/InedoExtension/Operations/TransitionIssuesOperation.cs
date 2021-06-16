@@ -5,6 +5,7 @@ using Inedo.Documentation;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensions.Jira.Clients;
+using Inedo.Extensions.Jira.Credentials;
 using Inedo.Extensions.Jira.SuggestionProviders;
 using Inedo.Web;
 
@@ -17,7 +18,7 @@ namespace Inedo.Extensions.Jira.Operations
     [Example(@"
 # closes issues for the HDARS project for the current release
 Transition-Issues(
-    Credentials: Jira7Local,
+    ResourceName: Jira7Local,
     Project: HDARS,
     From: QA-InProgress,
     To: Closed
@@ -25,9 +26,11 @@ Transition-Issues(
 ")]
     public sealed class TransitionIssuesOperation : JiraOperation
     {
-        [ScriptAlias("Credentials")]
-        [DisplayName("Credentials")]
-        public override string CredentialName { get; set; }
+
+        [DisplayName("From Jira resource")]
+        [SuggestableValue(typeof(SecureResourceSuggestionProvider<JiraSecureResource>))]
+        [Required]
+        public override string ResourceName { get; set; }
         [Required]
         [ScriptAlias("Project")]
         [DisplayName("Project name")]
@@ -58,13 +61,16 @@ Transition-Issues(
         {
             this.LogInformation($"Transitioning JIRA issue status {(this.IssueId != null ? $"of issue ID '{this.IssueId}' " : " ")}from '{(string.IsNullOrEmpty(this.FromStatus) ? "<any status>" : this.FromStatus)}' to '{this.ToStatus}'...");
 
-            var client = JiraClient.Create(this.ServerUrl, this.UserName, AH.Unprotect(this.Password), this);
+
+            var resource = this.GetResourceAndCredentials(context);
+
+            var client = JiraClient.Create(resource.resource.ServerUrl, resource.secureCredentials, this);
 
             var project = await this.ResolveProjectAsync(client, this.ProjectName);
             if (project == null)
                 return;
 
-            var fixForVersion = this.FixForVersion ?? (context as IStandardContext)?.SemanticVersion;
+            var fixForVersion = this.FixForVersion ?? context.ExpandVariables("$ReleaseNumber").AsString();
 
             var jiraContext = new JiraContext(project, fixForVersion, null);
 

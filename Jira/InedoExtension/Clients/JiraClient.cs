@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Inedo.Diagnostics;
+using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.IssueSources;
+using UsernamePasswordCredentials = Inedo.Extensions.Credentials.UsernamePasswordCredentials;
 
 namespace Inedo.Extensions.Jira.Clients
 {
@@ -29,10 +31,12 @@ namespace Inedo.Extensions.Jira.Clients
             this.log = log;
         }
 
-        public static JiraClient Create(string serverUrl, string userName, string password, ILogSink log = null)
+        public static JiraClient Create(string serverUrl, SecureCredentials credentials, ILogSink log = null)
         {
+            if (credentials is not UsernamePasswordCredentials upCredentials)
+                throw new InvalidCastException("Jira requires a Username Password Credential");
             log?.LogDebug($"Loading specified JIRA REST client...");
-            return new JiraRestClient(serverUrl, userName, password, log);
+            return new JiraRestClient(serverUrl, upCredentials.UserName, AH.Unprotect(upCredentials.Password), log);
         }
 
         public abstract Task<IEnumerable<JiraProject>> GetProjectsAsync();

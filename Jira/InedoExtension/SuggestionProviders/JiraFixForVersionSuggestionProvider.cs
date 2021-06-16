@@ -2,41 +2,27 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Inedo.Extensibility;
-using Inedo.Extensibility.Credentials;
-using Inedo.Extensions.Jira.Clients;
-using Inedo.Extensions.Jira.Credentials;
-using Inedo.Web;
 
 namespace Inedo.Extensions.Jira.SuggestionProviders
 {
-    public sealed class JiraFixForVersionSuggestionProvider : ISuggestionProvider
+    public sealed class JiraFixForVersionSuggestionProvider : JiraSuggestionProvider
     {
-        public async Task<IEnumerable<string>> GetSuggestionsAsync(IComponentConfiguration config)
+        internal override async Task<IEnumerable<string>> GetSuggestionsAsync()
         {
             var empty = new[] { "$ReleaseNumber" };
 
-            if (config == null)
-                return empty;
-
-            string credentialName = config["CredentialName"];
-            if (string.IsNullOrEmpty(credentialName))
-                return empty;
-
-            string projectName = config["ProjectName"];
+            string projectName = this.ComponentConfiguration["ProjectName"];
             if (string.IsNullOrEmpty(projectName))
                 return empty;
 
-            var credential = JiraCredentials.TryCreate(credentialName, config);
-            if (credential == null)
+            if (this.Resource == null || this.Credentials == null)
                 return empty;
 
-            var client = JiraClient.Create(credential.ServerUrl, credential.UserName, AH.Unprotect(credential.Password));
-            var proj = (await client.GetProjectsAsync()).FirstOrDefault(p => string.Equals(projectName, p.Name, StringComparison.OrdinalIgnoreCase));
+            var proj = (await this.Client.GetProjectsAsync()).FirstOrDefault(p => string.Equals(projectName, p.Name, StringComparison.OrdinalIgnoreCase));
             if (proj == null)
                 return empty;
 
-            var versions = from v in await client.GetProjectVersionsAsync(proj.Key)
+            var versions = from v in await this.Client.GetProjectVersionsAsync(proj.Key)
                            select v.Name;
 
             return empty.Concat(versions);

@@ -5,6 +5,7 @@ using Inedo.Documentation;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensions.Jira.Clients;
+using Inedo.Extensions.Jira.Credentials;
 using Inedo.Extensions.Jira.SuggestionProviders;
 using Inedo.Web;
 
@@ -17,7 +18,7 @@ namespace Inedo.Extensions.Jira.Operations
     [Example(@"
 # create issue for the HDARS project notifying QA that testing is required
 Create-Issue(
-    Credentials: Jira7Local,
+    ResourceName: Jira7Local,
     Project: HDARS,
     Title: QA Testing Required for $ApplicationName,
     Description: This issue was created by BuildMaster on $Date,
@@ -29,9 +30,10 @@ Log-Information ""Issue '$JiraIssueId' was created in JIRA."";
 ")]
     public sealed class CreateIssueOperation : JiraOperation
     {
-        [ScriptAlias("Credentials")]
-        [DisplayName("Credentials")]
-        public override string CredentialName { get; set; }
+        [DisplayName("From Jira resource")]
+        [SuggestableValue(typeof(SecureResourceSuggestionProvider<JiraSecureResource>))]
+        [Required]
+        public override string ResourceName { get; set; }
         [Required]
         [ScriptAlias("Project")]
         [DisplayName("Project name")]
@@ -65,8 +67,9 @@ Log-Information ""Issue '$JiraIssueId' was created in JIRA."";
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
             this.LogInformation("Creating JIRA issue...");
+            var resource = this.GetResourceAndCredentials(context);
 
-            var client = JiraClient.Create(this.ServerUrl, this.UserName, AH.Unprotect(this.Password), this);
+            var client = JiraClient.Create(resource.resource.ServerUrl, resource.secureCredentials, this);
 
             var project = await this.ResolveProjectAsync(client, this.ProjectName);
             if (project == null)
@@ -76,7 +79,7 @@ Log-Information ""Issue '$JiraIssueId' was created in JIRA."";
             if (type == null)
                 return;
 
-            var fixForVersion = this.FixForVersion ?? (context as IStandardContext)?.SemanticVersion;
+            var fixForVersion = this.FixForVersion ?? context.ExpandVariables("$ReleaseNumber").AsString();
 
             var issue = await client.CreateIssueAsync(
                 new JiraContext(project, fixForVersion, null),

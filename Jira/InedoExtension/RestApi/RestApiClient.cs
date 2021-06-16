@@ -13,6 +13,7 @@ using Inedo.Extensions.Jira.Clients;
 
 namespace Inedo.Extensions.Jira.RestApi
 {
+#warning This needs a complete rewrite to be converted from generic objects to Newtonsoft.Json and deserialize needs to be typed not Dictionaries
     internal sealed class RestApiClient
     {
         private string host;

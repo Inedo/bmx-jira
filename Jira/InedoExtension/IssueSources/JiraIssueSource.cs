@@ -6,21 +6,20 @@ using Inedo.Documentation;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.IssueSources;
+using Inedo.Extensibility.SecureResources;
 using Inedo.Extensions.Jira.Clients;
 using Inedo.Extensions.Jira.Credentials;
 using Inedo.Extensions.Jira.SuggestionProviders;
 using Inedo.Serialization;
 using Inedo.Web;
+using UsernamePasswordCredentials = Inedo.Extensions.Credentials.UsernamePasswordCredentials;
 
 namespace Inedo.Extensions.Jira.IssueSources
 {
     [DisplayName("JIRA Issue Source")]
     [Description("Issue source for JIRA.")]
-    public sealed class JiraIssueSource : IssueSource, IHasCredentials<JiraCredentials>
+    public sealed class JiraIssueSource : IssueSource<JiraSecureResource>, IMissingPersistentPropertyHandler
     {
-        [Persistent]
-        [DisplayName("Credentials")]
-        public string CredentialName { get; set; }
         [Persistent]
         [DisplayName("Project name")]
         [SuggestableValue(typeof(JiraProjectNameSuggestionProvider))]
@@ -38,23 +37,54 @@ namespace Inedo.Extensions.Jira.IssueSources
             +"for more information.")]
         public string CustomJql { get; set; }
 
+
+        void IMissingPersistentPropertyHandler.OnDeserializedMissingProperties(IReadOnlyDictionary<string, string> missingProperties)
+        {
+            if (string.IsNullOrEmpty(this.ResourceName) && missingProperties.TryGetValue("CredentialName", out var credName))
+                this.ResourceName = credName;
+            if (string.IsNullOrEmpty(this.ResourceName) && missingProperties.TryGetValue("Credentials", out var credsName))
+                this.ResourceName = credsName;
+
+        }
+
+        private (JiraSecureResource resource, UsernamePasswordCredentials secureCredentials) GetResourceAndCredentials(IIssueSourceEnumerationContext context)
+        {
+            JiraSecureResource resource = null;
+            SecureCredentials credentials = null;
+
+            var resolutionConext = new CredentialResolutionContext(context.ProjectId, null);
+
+            if (!string.IsNullOrEmpty(this.ResourceName))
+            {
+                resource = SecureResource.TryCreate(this.ResourceName, resolutionConext) as JiraSecureResource;
+                if (resource == null)
+                {
+                    var legacy = ResourceCredentials.TryCreate<JiraLegacyCredentials>(this.ResourceName);
+                    resource = legacy?.ToSecureResource() as JiraSecureResource;
+                    credentials = legacy?.ToSecureCredentials();
+                }
+                else
+                {
+                    credentials = resource.GetCredentials(resolutionConext);
+                }
+            }
+
+            return (resource, credentials as UsernamePasswordCredentials);
+        }
+
         public async override Task<IEnumerable<IIssueTrackerIssue>> EnumerateIssuesAsync(IIssueSourceEnumerationContext context)
         {
-            JiraCredentials credentials;
+            var resource = GetResourceAndCredentials(context);
 
-            if (context is IStandardContext s)
-                credentials = this.TryGetCredentials(s.EnvironmentId, s.ProjectId) as JiraCredentials;
-            else    
-                credentials = this.TryGetCredentials();
-
-            if (credentials == null)
+            if (resource.resource == null || resource.secureCredentials == null)
                 throw new InvalidOperationException("Credentials must be supplied to enumerate JIRA issues.");
+           
             if (string.IsNullOrEmpty(this.ProjectName) && string.IsNullOrEmpty(this.FixForVersion) && string.IsNullOrEmpty(this.CustomJql))
                 throw new InvalidOperationException("Cannot enumerate JIRA issues unless either a project name, fix version, or custom JQL is specified.");
-            if (credentials.Password == null)
+            if (resource.secureCredentials.Password == null)
                 throw new InvalidOperationException("A credential password is required to enumerate JIRA issues.");
 
-            var client = JiraClient.Create(credentials.ServerUrl, credentials.UserName, AH.Unprotect(credentials.Password), context.Log);
+            var client = JiraClient.Create(resource.resource.ServerUrl, resource.secureCredentials, context.Log);
 
             var project = await client.FindProjectAsync(this.ProjectName);
 
